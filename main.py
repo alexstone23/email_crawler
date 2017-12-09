@@ -42,6 +42,8 @@ class Crawler():
         self.domain = self.check.domain
         self.extracted_links = []
         self.target_url = self.check.target_link
+        self.level = 1
+        self.max_level = self.check.parsing_level
 
     # Checking absolute/relative links existence, modifying relative links to absolute
     def link_checker(self, url):
@@ -82,7 +84,26 @@ class Crawler():
             print('%s: not found' % link)
             pass
 
+    # Recursive page crawling
+    def recursive_link_crawler(self, url, level, max_level):
+        # Extracting links from a page
+        url_list = self.link_extractor(url)
+        # Checking crawling level
+        if level <= max_level:
+            if url_list:
+                for l in url_list:
+                    # Checking duplicates existence
+                    if l not in self.extracted_links:
+                        print(l)
+                        # Recording links to list
+                        self.extracted_links.append(l)
+                        # Moving on next node
+                        self.recursive_link_crawler(l, level+1, max_level)
+            else:
+                print('There are no links on this page...skipping')
+                pass
+
 if __name__ == '__main__':
     c = Crawler()
-    a = c.link_extractor(c.target_url)
-    print(len(a))
+    c.recursive_link_crawler(c.target_url, c.level, c.max_level)
+    print(c.extracted_links)
