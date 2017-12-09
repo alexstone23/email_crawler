@@ -34,5 +34,25 @@ class DataChecker():
         self.domain = self.url_data[2]
 
 
+class Crawler():
+    def __init__(self):
+        self.check = DataChecker()
+        self.protocol = self.check.protocol
+        self.domain = self.check.domain
+        self.extracted_links = []
+        self.target_url = self.check.target_link
+
+    # Checking absolute/relative links existence, modifying relative links to absolute
+    def link_checker(self, url):
+        input_url = url.split('/')
+        if input_url[0] != 'https:':
+            if input_url[0] != 'http:':
+                mod_url = "%s//%s%s" % (self.protocol, self.domain, url.strip('\\'))
+                return mod_url
+            else:
+                return url
+        else:
+            return url
+
 if __name__ == '__main__':
-    d = DataChecker()
+    c = Crawler()
