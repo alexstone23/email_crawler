@@ -2,9 +2,26 @@
 # -*-coding:utf-8 -*-
 import sys
 import optparse
-from lxml import etree
 import urllib.request
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+import re
+import threading
+import datetime
+
+try:
+    from lxml import etree
+except ImportError:
+    from lxml import etree
+    exit('Please intall lxml first: pip install lxml')
+
+class Colors:
+    blue = '\033[94m'
+    green = '\033[92m'
+    warning = '\033[93m'
+    fail = '\033[91m'
+    end = '\033[0m'
+    bold = '\033[1m'
+    underline = '\033[4m'
 
 
 class DataChecker():
@@ -36,14 +53,27 @@ class DataChecker():
 
 
 class Crawler():
+
+    '''
+        Main class
+        Methods:
+        1) link_checker -- checks absolute/relative links existence, modify relative links to absolute
+        2) link_extractor -- extract all links via html page
+        3) recursive_link_crawler -- recursive link crawler/collector
+        4) email_crawler -- collect emails and prints them out
+    '''
+
     def __init__(self):
         self.check = DataChecker()
         self.protocol = self.check.protocol
         self.domain = self.check.domain
         self.extracted_links = []
+        self.extracted_emails = []
         self.target_url = self.check.target_link
         self.level = 1
         self.max_level = self.check.parsing_level
+        self.email_regex = re.compile(r'[\w\-][\w\-\.]+@[\w\-][\w\-]+\.+[a-zA-Z]{1,4}', re.MULTILINE | re.IGNORECASE)
+        self.ignored_ext = ['jpg', 'png', 'ico', 'css', 'js', 'css', 'rss']
 
     # Checking absolute/relative links existence, modifying relative links to absolute
     def link_checker(self, url):
@@ -60,7 +90,6 @@ class Crawler():
     # Method for link extraction
     def link_extractor(self, link):
         # Ignoring links with extensions from list
-        ignored_links = ['jpg', 'png', 'ico', 'css', 'js', 'css', 'rss']
         try:
             # Sending fake headers to prevent blocking
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
@@ -74,12 +103,12 @@ class Crawler():
                 # Extracting all links with xpath
                 h = e.xpath('//*[@href]')
                 # Using generator for link check/recording
-                arr = [self.link_checker(link.attrib.get('href', None)) for link in h if not link.attrib.get('href', None).split('.')[-1] in ignored_links]
+                arr = [self.link_checker(link.attrib.get('href', None)) for link in h if not link.attrib.get('href', None).split('.')[-1] in self.ignored_ext]
                 # Removing duplicates returning clear list
                 return set(arr)
             except (AttributeError, ValueError):
                 pass
-        except HTTPError:
+        except (HTTPError, URLError, ConnectionResetError):
             # Page not found error
             print('%s: not found' % link)
             pass
@@ -100,10 +129,42 @@ class Crawler():
                         # Moving on next node
                         self.recursive_link_crawler(l, level+1, max_level)
             else:
-                print('There are no links on this page...skipping')
+                print(Colors.warning + 'There are no links on this page...skipping' + Colors.end)
                 pass
 
+    # Extracting e-mails from html pages
+    def email_crawler(self, url):
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
+        try:
+            d = urllib.request.Request(url, None, headers=headers)
+            u = urllib.request.urlopen(d, timeout=10)
+            page = u.read().decode('utf-8', errors='ignore')
+            for l in page.split('\n'):
+                email = re.findall(self.email_regex, l)
+                if email:
+                    for em in email:
+                        email_data = em.split('.')
+                        if not email_data[-1] in self.ignored_ext:
+                            if em not in self.extracted_emails:
+                                self.extracted_emails.append(em)
+                                print(Colors.bold + 'Found: ' + Colors.end + Colors.blue + em + ' ' + Colors.end + 'at ' + str(datetime.datetime.now()))
+        except (HTTPError, URLError, ConnectionResetError):
+            pass
+
+
+# Executor class
+class Executor():
+    def __init__(self):
+        c = Crawler()
+        c.recursive_link_crawler(c.target_url, c.level, c.max_level)
+        # Creating threads
+        threads = [threading.Thread(target=c.email_crawler, args=(url,)) for url in c.extracted_links]
+        try:
+            [th.start() for th in threads]
+            [th.join() for th in threads]
+        except:
+            print(Colors.warning + 'Unexpected thread error' + Colors.end)
+
 if __name__ == '__main__':
-    c = Crawler()
-    c.recursive_link_crawler(c.target_url, c.level, c.max_level)
-    print(c.extracted_links)
+    e = Executor()
+
