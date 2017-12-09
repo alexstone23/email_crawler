@@ -1,6 +1,5 @@
-#!/home/spartan/PycharmProjects/page_parser/bin/python3.5
+#!/usr/bin/python3.5
 # -*-coding:utf-8 -*-
-import sys
 import optparse
 import urllib.request
 from urllib.error import HTTPError, URLError
@@ -12,7 +11,13 @@ try:
     from lxml import etree
 except ImportError:
     from lxml import etree
-    exit('Please intall lxml first: pip install lxml')
+    message = '''
+    Please intall lxml first!
+    For python v2 -- pip install lxml
+    For python v3 -- pip3 install lxml
+    '''
+    exit(message)
+
 
 class Colors:
     blue = '\033[94m'
@@ -24,11 +29,8 @@ class Colors:
     underline = '\033[4m'
 
 
+# Checking options parameters
 class DataChecker():
-
-    '''
-        Checking options parameters
-    '''
 
     def __init__(self):
         self.option_parser = optparse.OptionParser('usage %script -u <target_link> -l <parsing_level>')
@@ -94,7 +96,7 @@ class Crawler():
             # Sending fake headers to prevent blocking
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
             d = urllib.request.Request(link, None, headers=headers)
-            u = urllib.request.urlopen(d)
+            u = urllib.request.urlopen(d, timeout=10)
             # Decoding from binary ignoring unsupported symbols
             page = u.read().decode('utf-8', errors='ignore')
             try:
