@@ -4,6 +4,7 @@ import sys
 import optparse
 from lxml import etree
 import urllib.request
+from urllib.error import HTTPError
 
 
 class DataChecker():
@@ -54,5 +55,34 @@ class Crawler():
         else:
             return url
 
+    # Method for link extraction
+    def link_extractor(self, link):
+        # Ignoring links with extensions from list
+        ignored_links = ['jpg', 'png', 'ico', 'css', 'js', 'css', 'rss']
+        try:
+            # Sending fake headers to prevent blocking
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'}
+            d = urllib.request.Request(link, None, headers=headers)
+            u = urllib.request.urlopen(d)
+            # Decoding from binary ignoring unsupported symbols
+            page = u.read().decode('utf-8', errors='ignore')
+            try:
+                # Parsing page with etree
+                e = etree.HTML(page)
+                # Extracting all links with xpath
+                h = e.xpath('//*[@href]')
+                # Using generator for link check/recording
+                arr = [self.link_checker(link.attrib.get('href', None)) for link in h if not link.attrib.get('href', None).split('.')[-1] in ignored_links]
+                # Removing duplicates returning clear list
+                return set(arr)
+            except (AttributeError, ValueError):
+                pass
+        except HTTPError:
+            # Page not found error
+            print('%s: not found' % link)
+            pass
+
 if __name__ == '__main__':
     c = Crawler()
+    a = c.link_extractor(c.target_url)
+    print(len(a))
